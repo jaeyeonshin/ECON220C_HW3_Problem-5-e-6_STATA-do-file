@@ -1,0 +1,63 @@
+clear
+cd "D:\UCSD\1st\Spring\metrics\PS3"
+set seed 112427
+
+	
+*** QUESTION 5(e) ***
+set	obs 100
+drawnorm x
+gen y=x>0
+logit y x	
+	
+	
+*** QUESTION 6 ***		
+foreach b in -0.5 0 0.5 {	
+    local beta `b' 
+    set more off
+    set trace off
+   	
+	cap postclose temp
+    postfile temp beta_2sls beta_iv se_2sls se_iv reject_2sls reject_iv ///
+    using iv_estimate_`b', replace 
+   
+    forvalues i = 1(1)1000 { 
+	  drop _all 
+	  quietly set obs 1000 
+	  gen z = rnormal(0,1)
+	  gen u = rnormal(0,1)
+	  
+	  gen xc = ln(2)*z
+	  gen xd = u + rnormal(0,1)
+
+	  gen x = xc + xd      
+	  gen y = 1 + `beta'*x + u 
+	  
+	  qui reg x z
+	  qui predict x_hat, xb      
+	  
+	  qui reg y x_hat
+	  scalar beta_hat_2sls = _b[x_hat]
+	  scalar se_hat_2sls = _se[x_hat]
+	  
+	  qui test x_hat = `beta'
+	  sca reject_2sls = (r(p)<0.10)
+	  
+	  qui ivreg y (x=z)
+	  scalar beta_hat_iv = _b[x]
+	  scalar se_hat_iv = _se[x]
+	  
+	  qui test x = `beta'
+	  sca reject_iv = (r(p)<0.10)
+	    
+	post temp (beta_hat_2sls) (beta_hat_iv) (se_hat_2sls) (se_hat_iv) (reject_2sls) (reject_iv)
+   }
+              
+			  
+ postclose temp
+
+ 
+ use iv_estimate_`b', clear
+ sum 
+
+ }
+
